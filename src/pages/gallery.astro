@@ -4,7 +4,7 @@ import Layout from "../layouts/Layout.astro";
 import GalleryPhotos from "../components/GalleryPhotos.astro";
 import { getAllGallery } from "../lib/api.js";
 const gallery = await getAllGallery();
-console.log(gallery[0].subtitle);
+console.log(gallery[0].subtitle ??);
 ---
 
 <Layout>
