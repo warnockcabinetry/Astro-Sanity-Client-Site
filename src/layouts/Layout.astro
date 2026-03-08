@@ -2,8 +2,9 @@
 interface Props {
   title?: string;
   description?: string;
+  navTitle?: string;
 }
-const { title } = Astro.props;
+const { title, navTitle } = Astro.props;
 import MainHead from "./MainHead.astro";
 import HeadingMenu from "../components/HeadingMenu.astro";
 import Footer from "../components/Footer.astro";
@@ -42,7 +43,7 @@ const accentColour = "#f2f2f2";
           style="display:none;visibility:hidden"></iframe></noscript
       >
       <!-- End Google Tag Manager (noscript) -->
-      <HeadingMenu transition:persist />
+      <HeadingMenu navTitle={navTitle} transition:persist />
       <div class="content">
         <slot />
       </div>
