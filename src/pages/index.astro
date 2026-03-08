@@ -16,6 +16,23 @@ const posts = await getAllPosts();
 const promotion = await getAllPromotions();
 const headerImg = "../images/homepage1.jpg";
 console.log("this is a server test", homeText[0]);
+
+const getBlockText = (blocks = []) => {
+  return blocks
+    .filter((block) => block?._type === "block" && Array.isArray(block.children))
+    .map((block) =>
+      block.children
+        .map((child) => child?.text || "")
+        .join("")
+        .trim()
+    )
+    .filter(Boolean)
+    .join(" ");
+};
+
+const homePage = homeText?.[0] || {};
+const subheadingText = getBlockText(homePage.subheading);
+const bodyText = getBlockText(homePage.body);
 ---
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -24,13 +41,15 @@ console.log("this is a server test", homeText[0]);
   href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
   rel="stylesheet"
 />
+<link
+  href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,700;6..96,800&display=swap"
+  rel="stylesheet"
+/>
 
 <script type="module">
   ScrollReveal().version;
   ScrollReveal({ distance: "60px" });
   ScrollReveal().reveal(".subtitle-header", { delay: 200 });
-  ScrollReveal().reveal(".lower-sub-header", { delay: 400, duration: 300 });
-  ScrollReveal().reveal(".cta-container", { delay: 400 });
 </script>
 
 <reference types="astro/client"></reference>
@@ -41,15 +60,14 @@ console.log("this is a server test", homeText[0]);
   <title>{homeText[0].subtitle ?? null}{console.log(homeText)}</title>
 </html>
 
-<Layout>
+<Layout navTitle={homePage.subtitle}>
   <main>
     <header class="header-container">
       <HeaderSlider />
 
       <div class="subtitle_container">
-        <h1 class="title-header">{homeText[0].subtitle ?? null}{console.log(homeText)}</h1>
         <h5 class="subtitle-header">
-          {homeText[0].subheading[0].children[0].text ?? null}
+          {subheadingText}
         </h5>
 
         <a href="/contact/" class="call-to-action" data-astro-prefetch
@@ -73,7 +91,7 @@ console.log("this is a server test", homeText[0]);
 
     <div class="cta-container">
       <h6 class="lower-sub-header body-text">
-        {homeText[0].subheading[0].children[0].text ?? null}
+        {bodyText}
       </h6>
       <!-- <h2 class="info-cta">{homeText[0].pageBuilder[0]?.subheaders ?? null}</h2> -->
       <a class="subheader--contact__button" href="/contact/"> Contact </a>
@@ -101,11 +119,6 @@ console.log("this is a server test", homeText[0]);
     margin-bottom: 0.2rem;
   }
 
-  .title-header {
-    margin-top: 0;
-    font-size: 2.5rem;
-  }
-
   .header-container {
     position: relative;
   }
@@ -123,29 +136,26 @@ console.log("this is a server test", homeText[0]);
     right: 0;
     top: 20%;
     margin: 0 auto;
-    padding: 2.5rem;
-    width: 70%;
-    max-width: 40rem;
-    min-height: 22rem;
+    padding: 1rem;
+    width: 48%;
+    max-width: 28rem;
+    min-height: 10rem;
     display: flex;
     justify-content: center;
     flex-flow: column;
     align-items: center;
     background-color: rgb(0, 0, 0, 0.5);
-    border-radius: 0px;
+    border-radius: 0;
   }
 
   @media only screen and (min-width: 300px) and (max-width: 550px) {
     .subtitle_container {
       top: 2rem;
       min-height: 2rem;
-      padding: 1.5rem;
+      padding: 0.8rem;
+      width: 78%;
     }
 
-    .title-header {
-      font-size: 2.8rem;
-      margin-bottom: -0.5rem;
-    }
     .subtitle-header {
       font-size: 16px !important;
     }
@@ -154,11 +164,6 @@ console.log("this is a server test", homeText[0]);
   @media screen and (min-width: 700px) {
     .subtitle_container {
       top: 15rem;
-    }
-
-    .title-header {
-      font-size: 3.8rem;
-      margin-bottom: -0.5rem;
     }
   }
 

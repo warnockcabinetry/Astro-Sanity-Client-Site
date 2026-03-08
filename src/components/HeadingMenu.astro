@@ -3,6 +3,11 @@ import Image from "astro/components/Image.astro";
 import headerLogo from "../images/header-logo.svg";
 import Logo from "../components/Logo.astro";
 const accentColor = "#f05a24";
+interface Props {
+  navTitle?: string;
+}
+
+const { navTitle } = Astro.props;
 ---
 
 <header>
@@ -63,6 +68,11 @@ const accentColor = "#f05a24";
         </button>
       </div>
       <Logo class="header-logo" />
+      {
+        navTitle && (
+          <li class="site-title" aria-label="Business title">{navTitle}</li>
+        )
+      }
       <li><a class="header-menu-item" href="/" data-astro-prefetch>Home</a></li>
       <li>
         <a class="header-menu-item" href="/gallery/" data-astro-prefetch
@@ -107,10 +117,10 @@ const accentColor = "#f05a24";
     text-decoration: none;
     flex-direction: row;
     align-items: center;
-    justify-content: space-evenly;
-    gap: 2rem;
+    justify-content: flex-start;
+    gap: 1.5rem;
     height: 6rem;
-    padding-right: 2rem;
+    padding: 0 2rem;
     margin-top: -0.5rem;
     width: 100%;
     background-color: #ffffff;
@@ -121,9 +131,20 @@ const accentColor = "#f05a24";
 
   .header-logo {
     justify-self: flex-start;
-    margin-left: -10rem;
+    margin-left: 0;
     height: 4rem;
     fill: #f06124;
+  }
+
+  .site-title {
+    color: black;
+    font-family: "Bodoni Moda", "Cormorant Garamond", serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: auto;
+    white-space: nowrap;
   }
 
   .header-menu-item {
@@ -150,6 +171,15 @@ const accentColor = "#f05a24";
     .header-logo {
       display: none;
     }
+
+    .site-title {
+      color: white;
+      font-size: 1.6rem;
+      margin-right: 0;
+      white-space: normal;
+      text-align: center;
+    }
+
     .heading-menu {
       flex-direction: column;
       height: 100vh;
