@@ -46,7 +46,25 @@ export async function getAllPromotions() {
   const homeQuery = '*[_type == "promotion"]';
   const homeParams = {};
   const homeImages = await useSanityClient().fetch(homeQuery, homeParams);
-  return homeImages
+
+  // Keep homepage cards in a fixed business-defined order.
+  const cardOrder = ["kitchens", "wardrobes", "built-ins"];
+  const getRank = (title = "") => {
+    const normalized = title.toLowerCase().trim();
+    const matchIndex = cardOrder.findIndex((item) => normalized.includes(item));
+    return matchIndex === -1 ? Number.MAX_SAFE_INTEGER : matchIndex;
+  };
+
+  return [...homeImages].sort((a, b) => {
+    const rankA = getRank(a?.title);
+    const rankB = getRank(b?.title);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+
+    return (a?.title || "").localeCompare(b?.title || "");
+  });
 }
 
 
