@@ -394,6 +394,13 @@ const siteTitle = "Warnock Cabinetry";
       return;
     }
 
+    if (menuToggle.dataset.menuBound === "true") {
+      document.body.classList.remove("mobile-menu-open");
+      menuToggle.setAttribute("aria-expanded", "false");
+      menuToggle.setAttribute("aria-label", "Open menu");
+      return;
+    }
+
     const setMenuState = (expanded) => {
       menuToggle.setAttribute("aria-expanded", String(expanded));
       menuToggle.setAttribute("aria-label", expanded ? "Close menu" : "Open menu");
@@ -410,6 +417,18 @@ const siteTitle = "Warnock Cabinetry";
         setMenuState(false);
       });
     });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 700) {
+        setMenuState(false);
+      }
+    });
+
+    window.addEventListener("pagehide", () => {
+      setMenuState(false);
+    });
+
+    menuToggle.dataset.menuBound = "true";
 
     setMenuState(false);
   }
