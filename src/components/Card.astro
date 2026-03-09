@@ -7,44 +7,67 @@ import arrow from "../images/arrowRight.svg";
 import { Image } from "astro:assets";
 const accentLight = "rgba(255, 255, 255, 0.3)";
 const accentGradient = "rgb(255, 255, 255)";
+
+const getCardHref = (promotion = {}) => {
+  const normalizedTitle = String(promotion?.title || "").toLowerCase();
+
+  if (normalizedTitle.includes("kitchen")) {
+    return "/projects/kitchens/";
+  }
+
+  if (normalizedTitle.includes("wardrobe")) {
+    return "/projects/wardrobes/";
+  }
+
+  if (normalizedTitle.includes("built")) {
+    return "/projects/built-ins/";
+  }
+
+  const promotionSlug = promotion?.slug?.current;
+  return promotionSlug ? `/projects/${promotionSlug}/` : "/gallery/";
+};
 ---
 
 <ul class="card-container">
   {
-    promotion.map((promotion) => (
-      <li class="link-card">
-        <Image
-          src={urlForImage(promotion.mainImage).url()}
-          alt="home-project-image"
-          width={500}
-          height={300}
-          format="webp"
-          quality={100}
-          class="card-img"
-        />
+    promotion.map((promotion) => {
+      const cardHref = getCardHref(promotion);
 
-        <a href='/gallery/' class="card-link">
-          {promotion.title}
+      return (
+        <li class="link-card">
+          <Image
+            src={urlForImage(promotion.mainImage).url()}
+            alt="home-project-image"
+            width={500}
+            height={300}
+            format="webp"
+            quality={100}
+            class="card-img"
+          />
 
-          <svg
-          class='arrow-right'
-            width="161"
-            height="10"
-            viewBox="0 0 161 10"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M1 1H160C158.167 1.16667 154.3 2.9 153.5 8.5"
-              stroke="white"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </a>
-      </li>
-    ))
+          <a href={cardHref} class="card-link">
+            {promotion.title}
+
+            <svg
+            class='arrow-right'
+              width="161"
+              height="10"
+              viewBox="0 0 161 10"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M1 1H160C158.167 1.16667 154.3 2.9 153.5 8.5"
+                stroke="white"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        </li>
+      );
+    })
   }
 </ul>
 

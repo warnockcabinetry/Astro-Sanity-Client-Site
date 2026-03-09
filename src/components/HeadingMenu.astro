@@ -284,7 +284,11 @@ const siteTitle = "Warnock Cabinetry";
 
     .heading-menu {
       flex-direction: column;
-      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -294,6 +298,7 @@ const siteTitle = "Warnock Cabinetry";
       translate: -100vw;
       transition: translate 0.5s ease-in-out;
       z-index: 90;
+      overflow-y: auto;
     }
     #menuToggle[aria-expanded="true"] {
       + .heading-menu {
@@ -389,24 +394,35 @@ const siteTitle = "Warnock Cabinetry";
       return;
     }
 
+    const setMenuState = (expanded) => {
+      menuToggle.setAttribute("aria-expanded", String(expanded));
+      menuToggle.setAttribute("aria-label", expanded ? "Close menu" : "Open menu");
+      document.body.classList.toggle("mobile-menu-open", expanded);
+    };
+
     menuToggle.addEventListener("click", () => {
       const isExpanded = menuToggle.getAttribute("aria-expanded") === "true";
-      const nextState = String(!isExpanded);
-      menuToggle.setAttribute("aria-expanded", nextState);
-      menuToggle.setAttribute("aria-label", !isExpanded ? "Close menu" : "Open menu");
+      setMenuState(!isExpanded);
     });
 
     menuLinks.forEach((link) => {
       link.addEventListener("click", () => {
-        menuToggle.setAttribute("aria-expanded", "false");
-        menuToggle.setAttribute("aria-label", "Open menu");
+        setMenuState(false);
       });
     });
+
+    setMenuState(false);
   }
 
   setupMobileMenu();
   document.addEventListener("astro:after-swap", setupMobileMenu);
 </script>
+
+<style is:global>
+  body.mobile-menu-open {
+    overflow: hidden;
+  }
+</style>
 
 <script
   type="module"
