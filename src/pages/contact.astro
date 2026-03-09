@@ -53,7 +53,19 @@ const contactHeadingText =
   <script is:inline async>
     window.addEventListener("DOMContentLoaded", function () {
       const status = document.getElementById("status");
+      const statusTop = document.getElementById("status-top");
       let form = document.getElementById("form");
+
+      const setStatus = (message) => {
+        if (status) {
+          status.innerHTML = message;
+        }
+
+        if (statusTop) {
+          statusTop.innerHTML = message;
+        }
+      };
+
       document.addEventListener("submit", async (event) => {
         event.preventDefault();
 
@@ -102,18 +114,18 @@ const contactHeadingText =
           .then((response) => {
             if (response.data.status === 200) {
               console.log("200");
-              status.innerHTML = "Thanks for your email";
+              setStatus("Thanks for your email");
               document.getElementById("form").reset();
             } else {
               console.log(response.data);
               console.log("not 200", response.data.status);
-              status.innerHTML = "Thanks for your email";
+              setStatus("Thanks for your email");
               document.getElementById("form").reset();
             }
           })
           .catch((error) => {
             console.log(error.response.data);
-            status.innerHTML = "Something went wrong. Please try again later.";
+            setStatus("Something went wrong. Please try again later.");
              document.getElementById("form").reset();
           });
       });
@@ -149,6 +161,8 @@ const contactHeadingText =
       )
     }
 
+    <p id="status-top" class="form-status form-status-top" aria-live="polite"></p>
+
     <div class="contact-container">
       <form class="form contact-container" id="form">
         <input
@@ -178,7 +192,7 @@ const contactHeadingText =
           pattern="^[^\d]*$"
           placeholder="last name"
           class="text-input"
-          minlength="4"
+          minlength="1"
           required
           required
           title="Please enter your last name without any numbers"
@@ -226,6 +240,8 @@ const contactHeadingText =
           value="Send"
           class="send-button-class"
         />
+
+        <p class="form-response-note">Expect response within 2 business day</p>
       </form>
     </div>
 
@@ -301,6 +317,18 @@ const contactHeadingText =
     padding-top: 0.5rem;
     font-size: 1.4rem;
     margin-top: -2rem;
+  }
+
+  .form-status {
+    color: var(--offWhite);
+    font-size: 1.15rem;
+    margin: 0;
+    text-align: center;
+  }
+
+  .form-status-top {
+    min-height: 1.3rem;
+    margin-bottom: 0.75rem;
   }
 
   .g-recaptcha {
@@ -391,6 +419,13 @@ const contactHeadingText =
   }
 
   .send-button-class::after {
+  }
+
+  .form-response-note {
+    color: #e6e6e6;
+    font-size: 0.95rem;
+    margin: 0.8rem 0 0.4rem;
+    text-align: center;
   }
 
   .selector--container {
