@@ -59,7 +59,36 @@ export async function getAllsliderImages() {
   const sliderQuery = `*[_type == "slider"] | order(sortOrder asc, _createdAt asc)`;
   const sliderParams = {};
   const sliderImages = await useSanityClient().fetch(sliderQuery, sliderParams);
-  return sliderImages;
+
+  const getNumericPrefix = (item = {}) => {
+    const sourceText = String(
+      item?.name || item?.title || item?.slug?.current || ""
+    ).trim();
+    const match = sourceText.match(/^(\d+)/);
+    return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+  };
+
+  return [...sliderImages].sort((a, b) => {
+    const sortOrderA = Number.isFinite(Number(a?.sortOrder))
+      ? Number(a.sortOrder)
+      : Number.POSITIVE_INFINITY;
+    const sortOrderB = Number.isFinite(Number(b?.sortOrder))
+      ? Number(b.sortOrder)
+      : Number.POSITIVE_INFINITY;
+
+    if (sortOrderA !== sortOrderB) {
+      return sortOrderA - sortOrderB;
+    }
+
+    const prefixA = getNumericPrefix(a);
+    const prefixB = getNumericPrefix(b);
+
+    if (prefixA !== prefixB) {
+      return prefixA - prefixB;
+    }
+
+    return String(a?.name || "").localeCompare(String(b?.name || ""));
+  });
 }
 
 export async function getAllCategories() {
