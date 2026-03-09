@@ -1,82 +1,327 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { getAllAboutUs } from "../lib/api";
-// import { Image } from "@unpic/astro";
 import { urlForImage } from "../lib/urlForImage";
-import { Image } from "@unpic/astro";
-const about = await getAllAboutUs();
-const backgrnd = about[0].image;
-const lightcolor = "#f2f2f2";
+import { portableTextToHtml } from "astro-sanity";
+
+const aboutEntries = await getAllAboutUs();
+const aboutPage = aboutEntries?.[0];
+const heroImage = aboutPage?.image;
+const heroBackgroundUrl = heroImage
+  ? urlForImage(heroImage).width(1800).fit("max").auto("format").url()
+  : "";
+const lightcolor = "#111111";
+
+function escapeHtml(value = "") {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function groupImagesIntoGrid(blocks = []) {
+  const normalized = Array.isArray(blocks) ? blocks : [];
+  const imageBlocks = normalized.filter((block) => block?._type === "image");
+  if (imageBlocks.length !== 4) {
+    return normalized;
+  }
+
+  const grouped = [];
+  let gridInserted = false;
+
+  for (const block of normalized) {
+    if (block?._type !== "image") {
+      grouped.push(block);
+      continue;
+    }
+
+    if (!gridInserted) {
+      grouped.push({
+        _type: "imageGrid",
+        images: imageBlocks,
+      });
+      gridInserted = true;
+    }
+    // Skip original image blocks once grid is inserted.
+  }
+
+  return grouped;
+}
+
+const portableTextComponents = {
+  types: {
+    imageGrid: ({ value }) => {
+      const images = Array.isArray(value?.images) ? value.images : [];
+      if (images.length !== 4) return "";
+
+      const gridItems = images
+        .map((item) => {
+          if (!item?.asset) return "";
+          const imageUrl = urlForImage(item).width(900).height(900).fit("crop").auto("format").url();
+          if (!imageUrl) return "";
+
+          const alt = escapeHtml(item?.alt || aboutPage?.title || "About page image");
+          const caption = item?.caption ? `<figcaption>${escapeHtml(item.caption)}</figcaption>` : "";
+
+          return `<figure class=\"about-grid-item\"><img src=\"${imageUrl}\" alt=\"${alt}\" loading=\"lazy\" decoding=\"async\" />${caption}</figure>`;
+        })
+        .join("");
+
+      if (!gridItems) return "";
+      return `<div class=\"about-image-grid\">${gridItems}</div>`;
+    },
+    image: ({ value }) => {
+      if (!value?.asset) return "";
+      const imageUrl = urlForImage(value).width(1400).fit("max").auto("format").url();
+      if (!imageUrl) return "";
+
+      const alt = escapeHtml(value?.alt || aboutPage?.title || "About page image");
+      const caption = value?.caption ? `<figcaption>${escapeHtml(value.caption)}</figcaption>` : "";
+
+      return `<figure class=\"about-inline-image\"><img src=\"${imageUrl}\" alt=\"${alt}\" loading=\"lazy\" decoding=\"async\" />${caption}</figure>`;
+    },
+  },
+};
+
+const aboutBodyBlocks = groupImagesIntoGrid(aboutPage?.body || []);
+
+const aboutHtml = aboutPage?.body
+  ? portableTextToHtml(aboutBodyBlocks, portableTextComponents)
+  : "";
 ---
 
-<script type="module">
-  ScrollReveal({ distance: "60px" });
-  ScrollReveal().reveal(".about-text", { delay: 200, origin: "bottom" });
-</script>
+<Layout navTitle={aboutPage?.subtitle}>
+  <article class="container">
+    <header
+      class="about-hero"
+      style={heroBackgroundUrl ? `background-image: url('${heroBackgroundUrl}');` : undefined}
+    >
+      <h1 class="about-title" style="font-family: 'Cormorant Garamond', serif; font-weight: 700;">
+        {aboutPage?.subtitle || aboutPage?.title || "About"}
+      </h1>
+    </header>
 
-<Layout>
-  <div class="container">
-    <Image
-      src={urlForImage(backgrnd).url()}
-      class="bckgrnd-about-img"
-      alt="about-image"
-      placeholder="blurhash"
-      layout="fullWidth"
-      width={1000}
-      height={800}
-      priority
-    />
-
-    <h1 class="about-title">
-      {about[0].subtitle}
-    </h1>
-
-    <p class="about-text body-text">
-      {about[0].body[0].children[0].text}
-    </p>
-  </div>
+    <section class="about-body-section">
+      {
+        aboutHtml ? (
+          <div class="about-content body-text" set:html={aboutHtml} />
+        ) : (
+          <p class="about-empty">Add body content in Sanity to populate this page.</p>
+        )
+      }
+      <div class="about-contact-wrap">
+        <a class="about-contact-link" href="/contact/">REQUEST A QUOTE</a>
+      </div>
+    </section>
+  </article>
 </Layout>
 
 <style define:vars={{ lightcolor }}>
   .container {
-    padding-top: 2rem;
+    background: #ffffff;
+    padding-top: 6.25rem;
+    padding-bottom: 4rem;
   }
-  .bckgrnd-about-img {
-    z-index: -4;
-    position: absolute;
+
+  .about-hero {
+    position: relative;
+    margin: 0 auto;
     width: 100%;
-    max-height: 80%;
+    max-width: 70rem;
+    height: clamp(10rem, 22vw, 15rem);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
     overflow: hidden;
-    top: 0px;
-    margin-left: auto;
-    margin-right: auto;
-    left: 0;
-    right: 0;
-    opacity: 0.3;
+    box-shadow: none;
+    filter: none;
   }
 
   .about-title {
-    color: var(--lightcolor);
+    font-family: "Cormorant Garamond", serif !important;
+    color: #ffffff;
     font-size: 3rem;
     font-weight: 700;
-    padding: 2rem;
+    padding: 0 1rem;
     text-align: center;
-    padding-top:5rem;
+    margin: 0;
+    max-width: 56rem;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+  }
+
+  .about-body-section {
+    margin: 0 auto;
+    max-width: 70rem;
+    background: #ffffff;
+    padding: 2rem 0 2.5rem;
   }
 
   @media screen and (max-width: 500px) {
     .about-title {
       font-size: 2.5rem;
-      margin-bottom:-1rem;
-      margin-top:0;
+      margin: 0;
     }
   }
 
-  .about-text {
+  .about-content {
+    font-family: "Cormorant Garamond", serif;
+    color: #111111;
     color: var(--lightcolor);
-    max-width: 40rem;
-    padding-left:2rem;
-    padding-right:2rem;
+    max-width: 52rem;
+    padding: 0 2rem;
     margin: 0 auto;
+    line-height: 1.75;
+  }
+
+  .about-content :global(*) {
+    font-family: "Cormorant Garamond", serif;
+    font-variation-settings: normal;
+    color: #111111 !important;
+  }
+
+  .about-empty {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 0 2rem;
+    color: var(--lightcolor);
+  }
+
+  .about-contact-wrap {
+    max-width: 52rem;
+    margin: 1.5rem auto 0;
+    padding: 0 2rem;
+    text-align: center;
+  }
+
+  .about-contact-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--lightcolor);
+    opacity: 1;
+    border: 1px solid var(--lightcolor);
+    border-radius: 0;
+    background: transparent;
+    padding: 0.85rem 1.4rem;
+    text-underline-offset: 0.2rem;
+  }
+
+  .about-contact-link:hover {
+    background: var(--lightcolor);
+    color: #ffffff;
+  }
+
+  .about-content :global(p) {
+    margin: 0 0 1.25rem;
+  }
+
+  .about-content :global(h1),
+  .about-content :global(h2),
+  .about-content :global(h3),
+  .about-content :global(h4) {
+    font-weight: 600;
+    margin: 2rem 0 1rem;
+    line-height: 1.25;
+  }
+
+  .about-content :global(ul) {
+    margin: 0 0 1.25rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+
+  .about-content :global(li) {
+    margin-bottom: 0.35rem;
+  }
+
+  .about-content :global(blockquote) {
+    margin: 1.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid rgba(242, 242, 242, 0.45);
+    font-style: italic;
+  }
+
+  .about-content :global(.about-inline-image) {
+    margin: 2rem auto;
+  }
+
+  .about-content :global(.about-image-grid) {
+    margin: 2rem auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 30rem;
+  }
+
+  .about-content :global(.about-grid-item) {
+    margin: 0;
+  }
+
+  .about-content :global(.about-grid-item img) {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+    border-radius: 0;
+  }
+
+  .about-content :global(.about-grid-item figcaption) {
+    margin-top: 0.35rem;
+    font-size: 0.9rem;
+    opacity: 0.85;
+  }
+
+  .about-content :global(.about-inline-image img) {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 0;
+  }
+
+  .about-content :global(.about-inline-image figcaption) {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    opacity: 0.85;
+  }
+
+  @media screen and (max-width: 700px) {
+    .container {
+      padding-top: 4.75rem;
+    }
+
+    .about-hero {
+      height: 9.5rem;
+    }
+
+    .about-title {
+      font-size: 2.25rem;
+    }
+
+    .about-body-section {
+      padding-top: 1.5rem;
+    }
+
+    .about-content {
+      padding: 0 1.25rem;
+    }
+
+    .about-content :global(.about-image-grid) {
+      gap: 0.5rem;
+    }
+
+    .about-contact-wrap {
+      padding: 0 1.25rem;
+    }
   }
 </style>

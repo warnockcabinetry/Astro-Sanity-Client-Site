@@ -18,6 +18,14 @@ export default defineType({
     }),
 
     defineField({
+      name: 'sortOrder',
+      title: 'Sort Order',
+      type: 'number',
+      description: 'Lower numbers appear first in the homepage slider.',
+      validation: (Rule) => Rule.integer().min(1),
+    }),
+
+    defineField({
       name: 'slug',
       title: 'Slug',
       type: 'slug',
@@ -39,6 +47,7 @@ export default defineType({
   preview: {
     select: {
       title: 'name',
+      subtitle: 'sortOrder',
       media: 'image',
     },
   },

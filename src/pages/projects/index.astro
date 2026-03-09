@@ -1,0 +1,31 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import GalleryPhotos from "../../components/GalleryPhotos.astro";
+import { getAllProjects } from "../../lib/api.js";
+
+const projects = await getAllProjects();
+---
+
+<Layout>
+  <div class="gal-heading-container">
+    <h2 class="gal-title">Projects</h2>
+  </div>
+  <GalleryPhotos projects={projects} />
+</Layout>
+
+<style>
+  .gal-heading-container {
+    padding-top: 4rem;
+  }
+
+  .gal-title {
+    color: #ececec;
+    font-size: 1.85rem;
+    font-family: "Bodoni Moda", "Cormorant Garamond", serif;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: center;
+    padding-top: 2rem;
+  }
+</style>

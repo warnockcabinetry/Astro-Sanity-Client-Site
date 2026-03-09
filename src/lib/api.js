@@ -1,5 +1,21 @@
 import { useSanityClient } from "astro-sanity";
 
+const PROJECT_FIELDS = `{
+  ..., 
+  categories[]->{
+    _id,
+    title,
+    slug
+  }
+}`;
+
+function normalizeCategoryLabel(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function getAllPosts() {
   const client = useSanityClient();
   const query = '*[_type == "post"]';
@@ -10,10 +26,24 @@ export async function getAllPosts() {
 
 export async function getAllProjects() {
   const client = useSanityClient();
-  const query = '*[_type == "projects"]';
+  const query = `*[_type == "projects"] | order(publishedAt desc) ${PROJECT_FIELDS}`;
   const params = {};
   const projects = await client.fetch(query, params);
   return projects;
+}
+
+export async function getProjectsByCategory(categoryKey) {
+  const normalizedTarget = normalizeCategoryLabel(categoryKey);
+  const allProjects = await getAllProjects();
+
+  return allProjects.filter((project) => {
+    const categories = Array.isArray(project?.categories) ? project.categories : [];
+    return categories.some((category) => {
+      const titleMatch = normalizeCategoryLabel(category?.title || "");
+      const slugMatch = normalizeCategoryLabel(category?.slug?.current || "");
+      return titleMatch === normalizedTarget || slugMatch === normalizedTarget;
+    });
+  });
 }
 
 
@@ -26,7 +56,7 @@ export async function getAllProjects() {
 // }
 
 export async function getAllsliderImages() {
-  const sliderQuery = `*[_type == "slider"]`;
+  const sliderQuery = `*[_type == "slider"] | order(sortOrder asc, _createdAt asc)`;
   const sliderParams = {};
   const sliderImages = await useSanityClient().fetch(sliderQuery, sliderParams);
   return sliderImages;
@@ -78,7 +108,7 @@ export async function getAllAboutUs() {
 }
 
 export async function getAllContact() {
-  const catalogQuery = '*[_type == "page" && title match "Contact"]';
+  const catalogQuery = '*[_type == "page" && title == "Contact"] | order(_updatedAt desc)';
   const catalogParams = {};
   const catalog = await useSanityClient().fetch(catalogQuery, catalogParams);
   return catalog

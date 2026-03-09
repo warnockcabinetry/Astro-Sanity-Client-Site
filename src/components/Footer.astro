@@ -1,6 +1,8 @@
 ---
 const { title } = Astro.props;
 import Logo from "../components/Logo.astro";
+const instagramUrl = "https://www.instagram.com/warnock.cabinetry/?hl=en";
+const facebookUrl = "https://www.facebook.com/people/Warnock-Cabinetry/61560035651433/";
 ---
 
 <style>
@@ -10,17 +12,139 @@ import Logo from "../components/Logo.astro";
     margin-top: 10rem;
     width: 100%;
     height: 5rem;
-    background-color: #1f1f1f;
+    background-color: #000000;
     justify-content: center;
     align-items: center;
+  }
+
+  .footer-inner {
+    width: min(100%, 64rem);
+    padding: 0 1.2rem;
+    display: grid;
+    grid-template-columns: 1fr auto 5rem auto 1fr;
+    align-items: center;
+    justify-items: center;
+    --social-cluster-width: 4.55rem;
+  }
+
+  .footer-socials {
+    grid-column: 2;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: var(--social-cluster-width);
+  }
+
+  .footer-balance {
+    grid-column: 4;
+    width: var(--social-cluster-width);
+    height: 1px;
   }
 
   .footer-logo {
     width: 5rem;
     height: 5rem;
+    grid-column: 3;
+  }
+
+  .instagram-button {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    transition: transform 0.18s ease, background 0.18s ease;
+  }
+
+  .facebook-button {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    transition: transform 0.18s ease, background 0.18s ease;
+  }
+
+  .facebook-button:hover {
+    transform: translateY(-1px);
+    background: transparent;
+  }
+
+  .instagram-button:hover {
+    transform: translateY(-1px);
+    background: transparent;
+  }
+
+  .instagram-icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    display: block;
+  }
+
+  .instagram-icon path,
+  .instagram-icon circle,
+  .instagram-icon rect {
+    stroke: #ffffff;
+    fill: none;
+    stroke-width: 1.8;
+  }
+
+  .facebook-icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    display: block;
+  }
+
+  .facebook-icon path,
+  .facebook-icon circle {
+    stroke: #ffffff;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 </style>
 
 <footer class="footer">
-  <Logo class="footer-logo" />
+  <div class="footer-inner">
+    <div class="footer-socials">
+      <a
+        class="facebook-button"
+        href={facebookUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Visit Facebook"
+        title="Facebook"
+      >
+        <svg class="facebook-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8.2"></circle>
+          <path d="M13.6 7.4h-1.5c-1 0-1.7.8-1.7 1.8V11h3.2"></path>
+          <path d="M12 11v5.6"></path>
+        </svg>
+      </a>
+      <a
+        class="instagram-button"
+        href={instagramUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Visit Instagram"
+        title="Instagram"
+      >
+        <svg class="instagram-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="4" ry="4"></rect>
+          <circle cx="12" cy="12" r="4"></circle>
+          <circle cx="17.2" cy="6.8" r="1.1"></circle>
+        </svg>
+      </a>
+    </div>
+    <Logo class="footer-logo" />
+    <span class="footer-balance" aria-hidden="true"></span>
+  </div>
 </footer>

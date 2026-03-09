@@ -49,11 +49,27 @@ const accentColour = "#f2f2f2";
       </div>
       <Footer />
       <style is:global define:vars={{ accentColour }}>
+        @font-face {
+          font-family: "InterVar";
+          src: url("/fonts/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+          font-style: normal;
+          font-weight: 100 900;
+          font-display: swap;
+        }
+
+        @font-face {
+          font-family: "InterVar";
+          src: url("/fonts/Inter-Italic-VariableFont_opsz,wght.ttf") format("truetype");
+          font-style: italic;
+          font-weight: 100 900;
+          font-display: swap;
+        }
+
         :root {
           --accent: #f2f2f2;
           --main-bg-color: #221f1e;
           --secondary-bg-color: #1f1f1f;
-          --secondary-font-family: "Roboto", sans-serif;
+          --secondary-font-family: "InterVar", "Segoe UI", sans-serif;
         }
 
         * {
@@ -68,12 +84,13 @@ const accentColour = "#f2f2f2";
         html {
           /* background: ; */
           height: 100%;
-          background: radial-gradient(#201a15, #111111);
+          background: #000000;
         }
 
         body {
           margin: 0px;
           height: 100%;
+          background: #000000;
           box-sizing: border-box;
           padding: 0px;
           display: flex;
@@ -93,6 +110,12 @@ const accentColour = "#f2f2f2";
 
         .content {
           flex: 1 0 auto;
+        }
+
+        @media screen and (max-width: 700px) {
+          .content {
+            padding-top: 3.5rem;
+          }
         }
 
         #text {

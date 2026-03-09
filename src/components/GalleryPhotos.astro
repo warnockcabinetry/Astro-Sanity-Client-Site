@@ -1,103 +1,504 @@
 ---
-import { getAllProjects } from "../lib/api";
 import { urlForImage } from "../lib/urlForImage";
 import Image from "astro/components/Image.astro";
 import { getImage } from "astro:assets";
-const projects = await getAllProjects();
----
+interface Props {
+  projects?: any[];
+}
 
-<link
-  href="https://unpkg.com/photoswipe@5.2.2/dist/photoswipe.css"
-  rel="stylesheet"
-/>
+const { projects = [] } = Astro.props;
+
+function getBodyParagraphs(project) {
+  const blocks = Array.isArray(project?.body) ? project.body : [];
+  return blocks
+    .filter((block) => block?._type === "block" && Array.isArray(block.children))
+    .map((block) =>
+      block.children
+        .map((child) => child?.text || "")
+        .join("")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+const belowMarkerRegex = /\[\[\s*below\s*\]\]/gi;
+const belowMarkerTestRegex = /\[\[\s*below\s*\]\]/i;
+
+function getRawBodyText(block) {
+  if (!block || !Array.isArray(block.children)) return "";
+  return block.children
+    .map((child) => child?.text || "")
+    .join("");
+}
+
+function getBodyText(block) {
+  return getRawBodyText(block).replace(belowMarkerRegex, "");
+}
+
+function hasVisibleText(text) {
+  return String(text || "").trim().length > 0;
+}
+
+function isLikelySectionHeading(block, text) {
+  const style = block?.style || "normal";
+  if (style !== "normal") return true;
+
+  const compact = String(text || "").trim();
+  if (!compact) return false;
+
+  // Treat short, uppercase labels (e.g. FEATURES, DETAILS) as headings.
+  return compact.length <= 40 && /^[A-Z0-9\s&\-]+$/.test(compact);
+}
+
+function getMountainBodySegments(project) {
+  const blocks = Array.isArray(project?.body) ? project.body : [];
+  const textBlocks = blocks.filter((block) => block?._type === "block");
+
+  const markerIndex = textBlocks.findIndex((block) => belowMarkerTestRegex.test(getRawBodyText(block)));
+  const introParagraphs = [];
+  const belowParagraphs = [];
+  let remainingBlocks = [];
+
+  // If marker exists anywhere in body, everything before it stays above the carousel.
+  if (markerIndex >= 0) {
+    const markerBlock = textBlocks[markerIndex];
+    const markerText = getRawBodyText(markerBlock);
+    const [aboveRaw, ...belowParts] = markerText.split(belowMarkerRegex);
+    const belowRaw = belowParts.join("");
+
+    for (const block of textBlocks.slice(0, markerIndex)) {
+      const text = getBodyText(block);
+      if (hasVisibleText(text)) {
+        introParagraphs.push(text);
+      }
+    }
+
+    if (hasVisibleText(aboveRaw)) {
+      introParagraphs.push(aboveRaw);
+    }
+
+    if (hasVisibleText(belowRaw)) {
+      remainingBlocks.push({
+        _type: "block",
+        style: markerBlock?.style || "normal",
+        listItem: markerBlock?.listItem,
+        children: [{ _type: "span", text: belowRaw }],
+      });
+      belowParagraphs.push(belowRaw);
+    }
+
+    remainingBlocks = [...remainingBlocks, ...textBlocks.slice(markerIndex + 1)];
+    for (const block of textBlocks.slice(markerIndex + 1)) {
+      const text = getBodyText(block);
+      if (hasVisibleText(text)) {
+        belowParagraphs.push(text);
+      }
+    }
+  } else {
+    const firstBodyBlock = textBlocks.find(
+      (block) => !block?.listItem && hasVisibleText(getBodyText(block))
+    );
+
+    const firstParagraph = firstBodyBlock ? getBodyText(firstBodyBlock) : "";
+    if (hasVisibleText(firstParagraph)) {
+      introParagraphs.push(firstParagraph);
+    }
+
+    remainingBlocks = firstBodyBlock
+      ? textBlocks.slice(textBlocks.indexOf(firstBodyBlock) + 1)
+      : textBlocks;
+  }
+
+  const groups = [];
+  let currentGroup = null;
+  let lockToCurrentSection = false;
+
+  for (const block of remainingBlocks) {
+    const text = getBodyText(block);
+    if (!hasVisibleText(text)) continue;
+
+    if (block?.listItem) {
+      if (!currentGroup) {
+        currentGroup = {
+          heading: null,
+          style: "normal",
+          bullets: [],
+          paragraphs: [],
+        };
+      }
+      currentGroup.bullets.push(text);
+      continue;
+    }
+
+    const shouldStartNewSection = isLikelySectionHeading(block, text);
+
+    const normalizedHeading = String(text || "").trim().toLowerCase();
+    if (shouldStartNewSection) {
+      lockToCurrentSection = normalizedHeading === "details";
+    }
+
+    // If plain text appears after bullets and is not a new section heading,
+    // keep it in the same section column.
+    if (currentGroup && !shouldStartNewSection && (currentGroup.bullets.length > 0 || lockToCurrentSection)) {
+      currentGroup.paragraphs.push(text);
+      continue;
+    }
+
+    if (currentGroup) {
+      groups.push(currentGroup);
+    }
+
+    currentGroup = {
+      heading: text,
+      style: block?.style || "normal",
+      bullets: [],
+      paragraphs: [],
+    };
+  }
+
+  if (currentGroup) {
+    groups.push(currentGroup);
+  }
+
+  return {
+    firstParagraph: introParagraphs[0] || "",
+    introParagraphs,
+    belowParagraphs,
+    groups,
+  };
+}
+
+function getMountainImages(project) {
+  const galleryAssets = Array.isArray(project?.galleryImages)
+    ? project.galleryImages.map((image) => image?.asset).filter(Boolean)
+    : [];
+
+  const allImages = [project?.mainImage, ...galleryAssets].filter(Boolean);
+  return allImages.slice(0, 4);
+}
+
+function isMountainKitchenProject(project) {
+  const title = String(project?.title || "").toLowerCase();
+  const slug = String(project?.slug?.current || "").toLowerCase();
+  const categoryText = Array.isArray(project?.categories)
+    ? project.categories
+        .map((category) => `${category?.title || ""} ${category?.slug?.current || ""}`)
+        .join(" ")
+        .toLowerCase()
+    : "";
+
+  const haystack = `${title} ${slug} ${categoryText}`;
+  return haystack.includes("mountain") && haystack.includes("kitchen");
+}
+
+function getProjectImageAssets(project) {
+  const galleryAssets = Array.isArray(project?.galleryImages)
+    ? project.galleryImages.map((image) => image?.asset).filter(Boolean)
+    : [];
+  return [project?.mainImage, ...galleryAssets].filter(Boolean);
+}
+
+function getDisplayImageUrl(asset) {
+  if (!asset) return "";
+  return urlForImage(asset)
+    .ignoreImageParams()
+    .fit("max")
+    .auto("format")
+    .url();
+}
+---
 
 <script type="module">
   ScrollReveal().version;
   ScrollReveal({ distance: "60px" });
-  ScrollReveal().reveal(".project-item-container", { delay: 200 });
-  ScrollReveal().reveal(".thumbnail-container", { delay: 200, duration: 300 });
+  ScrollReveal().reveal(".project-item-container:not(.mountain-project)", {
+    delay: 200,
+    origin: "bottom",
+  });
 </script>
 
-<script type="module" async>
-  import PhotoSwipeLightbox from "https://unpkg.com/photoswipe/dist/photoswipe-lightbox.esm.js";
+<script type="module">
+  const initProjectCarousels = () => {
+    const carousels = document.querySelectorAll(".mountain-carousel, .project-carousel");
 
-  const options = {
-    gallery: "#my-gallery",
-    children: "a:has(img)",
-    bgOpacity: 0.4,
-    initialZoomLevel: "fit",
-    showHideAnimationType: "fade",
-    initialZoomLevel: "fit",
-    imageClickAction: "next",
-    tapAction: "next",
-    pswpModule: () => import("https://unpkg.com/photoswipe"),
+    carousels.forEach((carousel) => {
+      const viewport = carousel.querySelector(".mountain-carousel-viewport, .project-carousel-viewport");
+      const track = carousel.querySelector(".carousel-track");
+      const slides = carousel.querySelectorAll(".carousel-slide");
+      const prevBtn = carousel.querySelector(".carousel-prev");
+      const nextBtn = carousel.querySelector(".carousel-next");
+
+      if (!viewport || !track || slides.length === 0) return;
+      if (carousel.dataset.carouselInit === "true") return;
+
+      const baseSlides = Array.from(slides);
+      const baseCount = baseSlides.length;
+
+      if (baseCount > 1 && carousel.dataset.carouselCloned !== "true") {
+        const firstClone = baseSlides[0].cloneNode(true);
+        const lastClone = baseSlides[baseCount - 1].cloneNode(true);
+
+        firstClone.classList.add("carousel-clone");
+        lastClone.classList.add("carousel-clone");
+        firstClone.setAttribute("aria-hidden", "true");
+        lastClone.setAttribute("aria-hidden", "true");
+
+        track.appendChild(firstClone);
+        track.insertBefore(lastClone, track.firstChild);
+        carousel.dataset.carouselCloned = "true";
+      }
+
+      let currentPos = baseCount > 1 ? 1 : 0;
+
+      const render = (withTransition = true) => {
+        const allSlides = track.querySelectorAll(".carousel-slide");
+        const activeSlide = allSlides[currentPos];
+        if (!activeSlide) return;
+
+        if (!withTransition) {
+          track.style.transition = "none";
+        }
+
+        const viewportCenter = viewport.clientWidth / 2;
+        const slideCenter = activeSlide.offsetLeft + activeSlide.offsetWidth / 2;
+        const translateX = Math.round(viewportCenter - slideCenter);
+
+        track.style.transform = `translate3d(${translateX}px, 0, 0)`;
+
+        const shouldShowButtons = baseCount > 1;
+        if (prevBtn) {
+          prevBtn.style.display = shouldShowButtons ? "inline-flex" : "none";
+        }
+        if (nextBtn) {
+          nextBtn.style.display = shouldShowButtons ? "inline-flex" : "none";
+        }
+
+        if (!withTransition) {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              track.style.transition = "transform 0.3s ease";
+            });
+          });
+        }
+      };
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          if (baseCount <= 1) return;
+          currentPos -= 1;
+          render(true);
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          if (baseCount <= 1) return;
+          currentPos += 1;
+          render(true);
+        });
+      }
+
+      track.addEventListener("transitionend", () => {
+        if (baseCount <= 1) return;
+
+        if (currentPos === 0) {
+          currentPos = baseCount;
+          render(false);
+        } else if (currentPos === baseCount + 1) {
+          currentPos = 1;
+          render(false);
+        }
+      });
+
+      window.addEventListener("resize", render, { passive: true });
+
+      const scheduleRecenter = () => {
+        requestAnimationFrame(() => {
+          render(false);
+        });
+      };
+
+      const carouselImages = track.querySelectorAll("img");
+      carouselImages.forEach((img) => {
+        if (!(img instanceof HTMLImageElement)) return;
+        if (img.complete && img.naturalWidth > 0) return;
+
+        img.addEventListener("load", scheduleRecenter, { passive: true });
+        img.addEventListener("error", scheduleRecenter, { passive: true });
+      });
+
+      window.addEventListener("load", scheduleRecenter, { once: true, passive: true });
+
+      carousel.dataset.carouselInit = "true";
+      render();
+
+      // One extra post-layout recenter avoids first-paint drift on mixed-size slides.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          render(false);
+        });
+      });
+    });
   };
-  const lightbox = new PhotoSwipeLightbox(options);
-  lightbox.init();
+
+  initProjectCarousels();
+  document.addEventListener("astro:after-swap", initProjectCarousels);
 </script>
 
 <ul class="gallery--zoom-transition project-container">
   {
-    projects.map((project) => (
-      <section id="#my-gallery">
-        <li class="pswp-gallery project-item-container" id="my-gallery">
-          <a
-            href={urlForImage(project.mainImage).url()}
-            data-pspw-width="1875"
-            data-pspw-height="2500"
-            target="_blank"
-            data-pswp-src={urlForImage(project.mainImage).url()}
-            class="container-project"
+    projects.map((project) => {
+      const isMountainKitchen = isMountainKitchenProject(project);
+      const { introParagraphs, belowParagraphs, groups: detailGroups } = getMountainBodySegments(project);
+      const mountainImages = getMountainImages(project);
+      const projectImages = getProjectImageAssets(project);
+
+      return (
+        <section id="#my-gallery">
+          <li
+            class={`pswp-gallery project-item-container ${isMountainKitchen ? "mountain-project" : ""}`}
+            id="my-gallery"
           >
-            <Image
-              src={urlForImage(project.mainImage).url()}
-              class="project-image"
-              alt={project.title}
-              height={300}
-              width={400}
-              loading="lazy"
-            />
-          </a>
+            <h3 class="project-title project-text">{project.title}</h3>
 
-          <div class="thumbnail-container">
-            {project.galleryImages === undefined ||
-            project.galleryImages.length === 0
-              ? " "
-              : project.galleryImages.map((galleryImage) => (
-                  <div class="test-div">
-                    <a
-                      class="test-div"
-                      data-pspw-width="1875"
-                      data-pspw-height="2500"
-                      href={urlForImage(galleryImage.asset).url()}
-                      target="_blank"
-                    >
-                      <Image
-                        src={urlForImage(galleryImage.asset).url()}
-                        alt="project-thumnail"
-                        class="thumbnail-img"
-                        data-pspw-width="1669"
-                        data-pspw-height="2500"
-                        height={100}
-                        width={200}
-                      />
-                      <h1 class="test" />
-                    </a>
+            {
+              isMountainKitchen ? (
+                <>
+                  {introParagraphs.length > 0 && (
+                    <div class="project-intro-row">
+                      {introParagraphs.map((paragraph) => (
+                        <p class="project-description project-description--lead">{paragraph}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div class="mountain-carousel" aria-label={`${project.title} image carousel`}>
+                    {mountainImages.length > 1 && (
+                      <button class="mountain-carousel-btn mountain-carousel-prev carousel-prev" type="button" aria-label="Previous image">
+                        <span class="carousel-arrow" aria-hidden="true">&larr;</span>
+                      </button>
+                    )}
+                    <div class="mountain-carousel-viewport">
+                      <div class="mountain-carousel-track carousel-track">
+                        {mountainImages.map((imageAsset) => (
+                          <div class="mountain-carousel-slide carousel-slide carousel-slide-static">
+                            <img
+                              src={getDisplayImageUrl(imageAsset)}
+                              alt={project.title}
+                              class="mountain-carousel-image"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {mountainImages.length > 1 && (
+                      <button class="mountain-carousel-btn mountain-carousel-next carousel-next" type="button" aria-label="Next image">
+                        <span class="carousel-arrow" aria-hidden="true">&rarr;</span>
+                      </button>
+                    )}
                   </div>
-                ))}
-          </div>
 
-          <h3 class="project-title project-text">{project.title}</h3>
-          <p class="project-description">
-            {project.body === undefined || project.body.length === 0
-              ? null
-              : project.body[0].children[0].text}
-          </p>
-        </li>
-      </section>
-    ))
+                  {detailGroups.length > 0 && (
+                    <section class="mountain-detail-panel">
+                      <div class="mountain-detail-columns">
+                        {detailGroups.map((group) => (
+                          <article class="mountain-detail-column">
+                            {group.heading && (
+                              <p
+                                class={`mountain-detail-heading ${group.style !== "normal" ? "mountain-detail-heading--strong" : ""}`}
+                              >
+                                {group.heading}
+                              </p>
+                            )}
+
+                            {group.bullets.length > 0 && (
+                              <ul class="mountain-bullet-columns">
+                                {group.bullets.map((paragraph) => (
+                                  <li>{paragraph}</li>
+                                ))}
+                              </ul>
+                            )}
+
+                            {group.paragraphs.length > 0 && (
+                              <div class="mountain-detail-copy">
+                                {group.paragraphs.map((paragraph) => (
+                                  <p>{paragraph}</p>
+                                ))}
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+
+                    </section>
+                  )}
+                </>
+              ) : (
+                <>
+                  {introParagraphs.length > 0 && (
+                    <div class="project-intro-row">
+                      {introParagraphs.map((paragraph) => (
+                        <p class="project-description project-description--lead">{paragraph}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div class="project-carousel" aria-label={`${project.title} image carousel`}>
+                    {projectImages.length > 1 && (
+                      <button class="project-carousel-btn project-carousel-prev carousel-prev" type="button" aria-label="Previous image">
+                        <span class="carousel-arrow" aria-hidden="true">&larr;</span>
+                      </button>
+                    )}
+                    <div class="project-carousel-viewport">
+                      <div class="project-carousel-track carousel-track">
+                        {projectImages.map((asset) => (
+                          <div class="project-carousel-slide carousel-slide carousel-slide-static">
+                            <img
+                              src={getDisplayImageUrl(asset)}
+                              class="project-carousel-image"
+                              alt={project.title}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {projectImages.length > 1 && (
+                      <button class="project-carousel-btn project-carousel-next carousel-next" type="button" aria-label="Next image">
+                        <span class="carousel-arrow" aria-hidden="true">&rarr;</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {belowParagraphs.length > 0 && (
+                    <section class="mountain-detail-panel project-below-panel">
+                      <div class="mountain-detail-columns">
+                        <article class="mountain-detail-column">
+                          <div class="mountain-detail-copy">
+                            {belowParagraphs.map((paragraph) => (
+                              <p>{paragraph}</p>
+                            ))}
+                          </div>
+                        </article>
+                      </div>
+                    </section>
+                  )}
+                </>
+              )
+            }
+          </li>
+        </section>
+      );
+    })
   }
 </ul>
+
+<div class="projects-page-cta-wrap">
+  <a class="mountain-detail-cta projects-page-cta" href="/contact/" data-astro-prefetch>REQUEST A QUOTE</a>
+</div>
 
 <style is:global>
   .gallery_container {
@@ -109,9 +510,9 @@ const projects = await getAllProjects();
   }
 
   .container-project {
-    display: grid;
-    grid-row: 1;
-    grid-column: 1;
+    display: block;
+    width: 100%;
+    max-width: 50rem;
   }
   .test {
     font-size: 5rem;
@@ -132,20 +533,16 @@ const projects = await getAllProjects();
 
   /* !! fix this for mobile display of project information-- */
   .project-item-container {
-    justify-items: center;
-    align-items: start;
+    align-items: center;
     max-width: 1000px;
-    display: grid;
-    grid-template-columns: 1fr 30%;
-    grid-template-rows: 1fr max-content 20%;
-    grid-gap: 0.2rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
     margin-bottom: 2rem;
     margin-top: 5rem;
-    @media screen and (max-width: 700px) {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr min-content max-content;
-      justify-items: center;
-    }
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .project_image {
@@ -155,10 +552,11 @@ const projects = await getAllProjects();
   .thumbnail-container {
     display: flex;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: center;
     gap: 0.5rem;
     margin-top: 1rem;
+    width: 100%;
   }
 
   .test-text {
@@ -172,7 +570,7 @@ const projects = await getAllProjects();
     height: 50px;
     width: 80px;
     object-fit: contain;
-    border-radius: 5px;
+    border-radius: 0;
   }
 
   .test-div {
@@ -191,57 +589,594 @@ const projects = await getAllProjects();
     color: #ececec;
     text-decoration: none;
     margin-top: 0.3rem;
-    font-size: 2.5rem;
+    margin-bottom: 0;
+    font-size: 1.55rem;
+    font-weight: 700;
+    text-align: left;
+    width: min(100%, 56rem);
+    padding-top: 0.5rem;
+    padding-left: clamp(1.25rem, 4vw, 3.25rem);
+    padding-right: clamp(1rem, 3vw, 2rem);
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+  }
+
+  .project-title::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: clamp(1.25rem, 4vw, 3.25rem);
+    width: clamp(12rem, 24vw, 20rem);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
   }
 
   .project-description {
     color: #ececec;
+    margin-top: 0;
+    margin-bottom: 0;
+    width: min(100%, 56rem);
+    text-align: left;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    font-weight: 700;
+    white-space: pre-line;
+    padding-left: clamp(1.25rem, 4vw, 3.25rem);
+    padding-right: clamp(1rem, 3vw, 2rem);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .project-description--lead {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .project-intro-row {
+    width: min(100%, 56rem);
+    margin-left: auto;
+    margin-right: auto;
+    background: transparent;
+  }
+
+  .project-intro-row .project-description {
+    color: #ececec;
+    font-size: 0.94rem;
+    line-height: 1.4;
+    font-weight: 700;
+  }
+
+  .project-below-panel {
+    margin-top: 0.3rem;
+  }
+
+  .project-description-stack {
+    width: min(100%, 56rem);
+    padding-left: clamp(1.25rem, 4vw, 3.25rem);
+    padding-right: clamp(1rem, 3vw, 2rem);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mountain-detail-panel {
+    width: 100vw;
+    background: transparent;
+    color: #ececec;
+    margin-top: 1rem;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding: 1.5rem 2.25rem 2.6rem;
+  }
+
+  .mountain-detail-columns {
+    width: min(100%, 60rem);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .mountain-detail-cta-wrap {
+    width: min(100%, 60rem);
+    margin: 1.5rem auto 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .mountain-detail-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #ececec;
+    opacity: 0.85;
+    text-underline-offset: 0.2rem;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .mountain-detail-cta:hover {
+    opacity: 1;
+  }
+
+  .projects-page-cta-wrap {
+    width: min(100%, 60rem);
+    margin: 1.6rem auto 3rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .projects-page-cta {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: #ffffff;
+    opacity: 1;
+    border: 1px solid #ffffff;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.85rem 1.4rem;
+  }
+
+  .projects-page-cta:hover {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .mountain-detail-column {
+    min-width: 0;
+  }
+
+  .mountain-detail-heading {
+    width: 100%;
+    margin: 0 0 0.65rem;
+    color: #ececec;
+    text-align: left;
+    font-size: 1.08rem;
+    line-height: 1.4;
+    padding: 0;
+    font-weight: 700;
+  }
+
+  .mountain-detail-heading--strong {
+    font-weight: 600;
+    margin-top: 0.2rem;
+  }
+
+  .mountain-detail-copy p,
+  .project-below-panel .mountain-detail-copy p {
+    color: #ececec;
+    text-align: left;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 1.14rem;
+    line-height: 1.5;
+    font-weight: 700;
+    letter-spacing: normal;
+    text-transform: none;
+    margin: 0.45rem 0 0;
+  }
+
+  .project-below-panel .mountain-detail-copy p {
+    font-weight: 700 !important;
+    font-style: normal !important;
+  }
+
+  .mountain-detail-copy p:first-child,
+  .project-below-panel .mountain-detail-copy p:first-child {
+    margin-top: 0;
+  }
+
+  .mountain-bullet-columns {
+    width: 100%;
+    margin: 0;
+    padding-left: 1.9rem;
+    list-style-position: outside;
+    list-style-type: disc;
+    text-align: left;
+  }
+
+  .mountain-bullet-columns li {
+    color: #ececec;
+    text-align: left;
+    font-size: 1.08rem;
+    line-height: 1.4;
+    margin-bottom: 0.55rem;
+    break-inside: avoid;
+    list-style: disc !important;
+    display: list-item;
+    padding-left: 0.2rem;
+  }
+
+  .mountain-carousel {
+    width: 100vw;
+    position: relative;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: 0.35rem;
+  }
+
+  .mountain-carousel-viewport {
+    overflow: hidden;
+    width: 100%;
+    background: transparent;
+  }
+
+  .mountain-carousel-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    transition: transform 0.3s ease;
+    width: max-content;
+    line-height: 0;
+  }
+
+  .mountain-carousel-slide {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    background: transparent;
+    height: clamp(18rem, 68vh, 46rem);
+    overflow: hidden;
+  }
+
+  .carousel-slide-static {
+    cursor: default;
+  }
+
+  .carousel-slide-static img {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .mountain-carousel-image {
+    width: auto;
+    height: 100%;
+    object-fit: contain;
+    background: transparent;
+    display: block;
+    margin: 0 auto;
+    max-width: none;
+  }
+
+  .mountain-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    height: 2.6rem;
+    width: 3.2rem;
+    border-radius: 0;
+    border: 1px solid rgba(235, 235, 235, 0.7);
+    background: rgba(128, 128, 128, 0.72);
+    color: #ffffff;
+    font-size: 0;
+    line-height: 0;
+    cursor: pointer;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+  }
+
+  .mountain-carousel-btn:hover {
+    transform: translateY(-50%) scale(1.04);
+    background: rgba(150, 150, 150, 0.78);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+  }
+
+  .mountain-carousel-prev {
+    left: 0.65rem;
+  }
+
+  .mountain-carousel-next {
+    right: 0.65rem;
+  }
+
+  .mountain-project .project-title {
+    font-size: 1.55rem;
+    width: min(100%, 56rem);
+    margin-bottom: 0;
+    text-align: left;
+  }
+
+  .mountain-project .project-description,
+  .mountain-project .project-description-stack {
+    width: min(100%, 56rem);
+    text-align: left;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    font-weight: 700;
+    white-space: pre-line;
+    padding-left: clamp(1.25rem, 4vw, 3.25rem);
+    padding-right: clamp(1rem, 3vw, 2rem);
+  }
+
+  .mountain-project .project-description--lead {
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    margin-bottom: 0;
   }
 
   .project-text {
     text-decoration: none;
   }
 
+  .project-carousel {
+    width: 100vw;
+    position: relative;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: 0.35rem;
+  }
+
+  .project-carousel-viewport {
+    overflow: hidden;
+    width: 100%;
+    background: transparent;
+  }
+
+  .project-carousel-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    transition: transform 0.3s ease;
+    width: max-content;
+    line-height: 0;
+  }
+
+  .project-carousel-slide {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    background: transparent;
+    height: clamp(18rem, 68vh, 46rem);
+    overflow: hidden;
+  }
+
+  .carousel-clone {
+    pointer-events: none;
+  }
+
+  .project-carousel-image {
+    width: auto;
+    height: 100%;
+    object-fit: contain;
+    background: transparent;
+    display: block;
+    margin: 0 auto;
+    max-width: none;
+  }
+
+  .project-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    height: 2.6rem;
+    width: 3.2rem;
+    border-radius: 0;
+    border: 1px solid rgba(235, 235, 235, 0.7);
+    background: rgba(128, 128, 128, 0.72);
+    color: #ffffff;
+    font-size: 0;
+    line-height: 0;
+    cursor: pointer;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+  }
+
+  .project-carousel-btn:hover {
+    transform: translateY(-50%) scale(1.04);
+    background: rgba(150, 150, 150, 0.78);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+  }
+
+  .carousel-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 1.35rem;
+    line-height: 1;
+    font-weight: 400;
+    transform: translateY(-1px);
+  }
+
+  .project-carousel-prev {
+    left: 0.65rem;
+  }
+
+  .project-carousel-next {
+    right: 0.65rem;
+  }
+
   /* media queries */
 
   @media screen and (max-width: 700px) {
+        .project-intro-row .project-description {
+          font-size: 0.86rem;
+          line-height: 1.35;
+          font-weight: 700;
+        }
+
     .project-title {
-      font-size: 2rem;
-      max-width: 80%;
-      margin-right: 1rem;
+      font-size: 1.22rem;
+      max-width: min(100%, 56rem);
+      padding-left: clamp(0.85rem, 3.2vw, 1.5rem);
+      padding-right: clamp(1rem, 4vw, 2rem);
+    }
+
+    .project-title::before {
+      left: clamp(0.85rem, 3.2vw, 1.5rem);
+      width: clamp(8.5rem, 42vw, 13.5rem);
     }
 
     .project-description {
+      font-size: 0.95rem;
+      line-height: 1.45;
+      font-weight: 700;
+      max-width: min(100%, 56rem);
+      margin-top: 0;
+      padding-left: clamp(0.85rem, 3.2vw, 1.5rem);
+      padding-right: clamp(1rem, 4vw, 2rem);
+    }
+
+    .project-carousel {
+      width: min(100%, 92%);
+    }
+
+    .project-carousel-btn {
+      height: 2.3rem;
+      width: 2.9rem;
+    }
+
+    .carousel-arrow {
       font-size: 1.2rem;
-      max-width: 80%;
-      margin-left: 3rem;
-      margin-top: 0rem;
-      justify-self: start;
+    }
+
+    .project-carousel-prev {
+      left: 0.45rem;
+    }
+
+    .project-carousel-next {
+      right: 0.45rem;
+    }
+
+    .mountain-carousel {
+      width: 100vw;
+    }
+
+    .mountain-carousel-track,
+    .project-carousel-track {
+      gap: 0;
+    }
+
+    .mountain-carousel-slide,
+    .project-carousel-slide {
+      height: clamp(14rem, 52vh, 30rem);
+    }
+
+    .project-carousel {
+      width: 100vw;
+    }
+
+    .mountain-carousel-image,
+    .project-carousel-image {
+      height: 100%;
+      width: auto;
+    }
+
+    .mountain-carousel-btn {
+      height: 2.3rem;
+      width: 2.9rem;
+    }
+
+    .mountain-carousel-prev {
+      left: 0.45rem;
+    }
+
+    .mountain-carousel-next {
+      right: 0.45rem;
+    }
+
+    .mountain-detail-panel {
+      width: 100vw;
+      padding: 1rem 1.4rem 1.8rem;
+    }
+
+    .mountain-detail-heading {
+      width: 100%;
+      font-size: 0.98rem;
+    }
+
+    .mountain-detail-copy p,
+    .project-below-panel .mountain-detail-copy p {
+      font-size: 1.02rem;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    .project-below-panel .mountain-detail-copy p {
+      font-weight: 700 !important;
+      font-style: normal !important;
+    }
+
+    .mountain-detail-columns {
+      width: min(100%, 92%);
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .mountain-detail-cta-wrap {
+      width: min(100%, 92%);
+      margin-top: 1.15rem;
+    }
+
+    .projects-page-cta-wrap {
+      width: min(100%, 92%);
+      margin: 1.2rem auto 2.2rem;
+    }
+
+    .mountain-bullet-columns {
+      width: 100%;
+    }
+
+    .mountain-bullet-columns li {
+      font-size: 0.98rem;
+    }
+
+    .project-description-stack {
+      width: min(100%, 56rem);
+    }
+
+    .mountain-project .project-title {
+      font-size: 1.22rem;
+      width: min(100%, 56rem);
+    }
+
+    .mountain-project .project-description,
+    .mountain-project .project-description-stack {
+      width: min(100%, 56rem);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      font-weight: 700;
+      padding-left: clamp(0.85rem, 3.2vw, 1.5rem);
+      padding-right: clamp(1rem, 4vw, 2rem);
+    }
+
+    .mountain-project .project-description--lead {
+      font-size: inherit;
+      line-height: inherit;
+      font-weight: inherit;
     }
   }
 
   @media screen and (min-width: 700px) {
-    .project-title {
-      grid-column: 1;
-      grid-rows: 3;
-    }
-
     .project-description {
-      margin-top: 2rem;
-      font-size: 1.5rem;
-      justify-self: left;
-      grid-column: 2 / 3;
-      grid-row: 1;
-    }
-    .thumbnail-container {
-      order: 2;
-      grid-row: 2 / 3;
-      grid-column: 1;
+      margin-top: 0;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      font-weight: 700;
+      max-width: min(100%, 56rem);
     }
 
-    .project_image {
-      grid-row: 1;
-      align-self: start;
+    .thumbnail-container {
+      order: 0;
     }
   }
 
