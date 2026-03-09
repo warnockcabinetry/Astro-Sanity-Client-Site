@@ -108,10 +108,20 @@ export default function ContactForm() {
           </label>
           <select name="category" className="custom-select" id="category">
             <option value="Kitchens">Kitchens</option>
-            <option value="Cabinetry">Cabinetry</option>
-            <option value="Closets">Closets</option>
+            <option value="Wardrobes" selected>Wardrobes</option>
+            <option value="Built-ins">Built-ins</option>
             <option value="Other">Other</option>
           </select>
+          <script dangerouslySetInnerHTML={{__html:`
+            document.addEventListener('DOMContentLoaded', function() {
+              const params = new URLSearchParams(window.location.search);
+              const cat = params.get('category');
+              if (cat) {
+                const select = document.getElementById('category');
+                if (select) select.value = cat;
+              }
+            });
+          `}} />
         </div>
         <button
           type="submit"

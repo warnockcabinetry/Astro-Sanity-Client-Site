@@ -497,7 +497,18 @@ function getDisplayImageUrl(asset) {
 </ul>
 
 <div class="projects-page-cta-wrap">
-  <a class="mountain-detail-cta projects-page-cta" href="/contact/" data-astro-prefetch>REQUEST A QUOTE</a>
+  {Astro.url.pathname.includes('kitchens') && (
+    <a class="mountain-detail-cta projects-page-cta" href="/contact?category=Kitchens" data-astro-prefetch>REQUEST A QUOTE</a>
+  )}
+  {Astro.url.pathname.includes('wardrobes') && (
+    <a class="mountain-detail-cta projects-page-cta" href="/contact?category=Wardrobes" data-astro-prefetch>REQUEST A QUOTE</a>
+  )}
+  {Astro.url.pathname.includes('built-ins') && (
+    <a class="mountain-detail-cta projects-page-cta" href="/contact?category=Built-ins" data-astro-prefetch>REQUEST A QUOTE</a>
+  )}
+  {!Astro.url.pathname.includes('kitchens') && !Astro.url.pathname.includes('wardrobes') && !Astro.url.pathname.includes('built-ins') && (
+    <a class="mountain-detail-cta projects-page-cta" href="/contact/" data-astro-prefetch>REQUEST A QUOTE</a>
+  )}
 </div>
 
 <style is:global>
