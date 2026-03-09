@@ -24,30 +24,37 @@ function escapeHtml(value = "") {
 function groupImagesIntoGrid(blocks = []) {
   const normalized = Array.isArray(blocks) ? blocks : [];
   const imageBlocks = normalized.filter((block) => block?._type === "image");
-  if (imageBlocks.length !== 4) {
-    return normalized;
-  }
+  let grouped = [];
 
-  const grouped = [];
-  let gridInserted = false;
-
-  for (const block of normalized) {
-    if (block?._type !== "image") {
-      grouped.push(block);
-      continue;
+  if (imageBlocks.length >= 4) {
+    let gridInserted = false;
+    let imageIndex = 0;
+    for (const block of normalized) {
+      if (block?._type !== "image") {
+        grouped.push(block);
+        continue;
+      }
+      // Insert grid at the first image position
+      if (!gridInserted && imageIndex === 0) {
+        grouped.push({
+          _type: "imageGrid",
+          images: imageBlocks.slice(0, 4),
+        });
+        gridInserted = true;
+        imageIndex += 4;
+        continue;
+      }
+      // Skip remaining images (they will be handled after text)
+      imageIndex++;
     }
-
-    if (!gridInserted) {
-      grouped.push({
-        _type: "imageGrid",
-        images: imageBlocks,
-      });
-      gridInserted = true;
+    // After all blocks, append the fifth image (if exists)
+    if (imageBlocks.length > 4) {
+      grouped.push(imageBlocks[4]);
     }
-    // Skip original image blocks once grid is inserted.
+    return grouped;
   }
-
-  return grouped;
+  // If less than 4 images, return as-is
+  return normalized;
 }
 
 const portableTextComponents = {
