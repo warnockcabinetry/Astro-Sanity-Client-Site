@@ -1,0 +1,29 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout>
+  <!-- Event snippet for Submit lead form conversion page -->
+  <script>
+    gtag('event', 'conversion', {'send_to': 'AW-18004705094/NhHqCJnl1IUcEMb-p4lD'});
+  </script>
+  <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 60vh;">
+    <h3 id="thankyou-message" style="color: #fff; font-size: 2rem; text-align: center;">Thank you for your email!</h3>
+    <div id="thankyou-contact" style="color: #fff; font-size: 1rem; text-align: center; margin-top: 1.5rem; opacity: 0.85;">
+      info@warnockcabinetry.ca<br/>
+      (613) 818-5470
+    </div>
+    <a href="/" style="margin-top: 2.5rem; padding: 0.75rem 2rem; background: #000; color: #fff; border: 2px solid #fff; border-radius: 0; font-size: 1.1rem; text-decoration: none; box-shadow: none; transition: background 0.3s; text-shadow: 0 0 2px #fff;">Home</a>
+  </div>
+  <script is:inline>
+    if (window.ScrollReveal) {
+      ScrollReveal().reveal('#thankyou-message', {
+        distance: '50px',
+        duration: 800,
+        origin: 'bottom',
+        easing: 'ease-in',
+        reset: false
+      });
+    }
+  </script>
+  </Layout>
