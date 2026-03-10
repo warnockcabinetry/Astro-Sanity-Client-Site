@@ -3,6 +3,12 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout>
+	<!-- Google Ads Conversion Event -->
+	<script>
+		if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+			window.gtag('event', 'conversion', {'send_to': 'AW-18004705094/h5j3CJzl1IUcEMb-p4lD'});
+		}
+	</script>
 <h2 class="email-sent__success">
 Thank you for your email. We will get back to you as soon as possible.  
 </h2>  
