@@ -41,7 +41,7 @@ export default function ContactForm() {
         console.log(response.data.status);
         if (response.data.status === 200) {
           console.log("success");
-          window.location.href = "/thankyou";
+          myRef.current.innerHTML = "Thanks for your email";
           // Google Ads conversion tracking
           if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
           }
