@@ -63,27 +63,25 @@ export default function ContactForm() {
       data-botpoison-public-key="pk_63cf250d-bf36-4970-ac6f-143da67ad4c4"
     >
       <div className="contact-container">
-        <input
-          id="firstName"
-          type="text"
-          name="first-name"
-          placeholder="first name"
-          className="text-input"
-          required
-          minLength="2"
-          onChange={(e) => setFirstName(e.target.value)}
-        />
+		<input
+		  id="firstName"
+		  type="text"
+		  name="first-name"
+		  placeholder="first name"
+		  className="text-input"
+		  required
+		  onChange={(e) => setFirstName(e.target.value)}
+		/>
 
-        <input
-          type="text"
-          name="last-name"
-          id="lastName"
-          placeholder="last name"
-          className="text-input"
-          minLength="4"
-          required
-          onChange={(e) => setLastName(e.target.value)}
-        />
+		<input
+		  type="text"
+		  name="last-name"
+		  id="lastName"
+		  placeholder="last name"
+		  className="text-input"
+		  required
+		  onChange={(e) => setLastName(e.target.value)}
+		/>
 
         <input
           type="email"
