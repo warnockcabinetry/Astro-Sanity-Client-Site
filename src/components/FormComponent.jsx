@@ -42,6 +42,10 @@ export default function ContactForm() {
         if (response.data.status === 200) {
           console.log("success");
           myRef.current.innerHTML = "Thanks for your email";
+          // Google Ads conversion tracking
+          if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+            window.gtag('event', 'conversion', {'send_to': 'AW-18004705094/h5j3CJzl1IUcEMb-p4lD'});
+          }
         } else {
           console.log("s");
           myRef.current.innerHTML = "Error. Please try again.";
